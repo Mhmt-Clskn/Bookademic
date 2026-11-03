@@ -1,0 +1,290 @@
+﻿id,title,body,labels,owner
+US-01,"US-01: As a student, I want to register with my school email.","**Epic:** E1 · **Points:** 3 · **Priority:** Must · **Dependencies:** —
+
+**User story**
+As a student, I want to register with my school email.
+
+**Acceptance criteria**
+Only emails with the school domain are accepted, otherwise 400; registering the same email a second time returns 409.
+
+**Owner:** Mehmet
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M1-identity,must,epic-E1,sp-3",Mehmet
+US-02,"US-02: As a user, I want to log in and access the screens for my role.","**Epic:** E1 · **Points:** 3 · **Priority:** Must · **Dependencies:** US-01
+
+**User story**
+As a user, I want to log in and access the screens for my role.
+
+**Acceptance criteria**
+Valid credentials → 200 + JWT; invalid credentials → 401; no token → 401; unauthorized role → 403.
+
+**Owner:** Mehmet
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M1-identity,must,epic-E1,sp-3",Mehmet
+US-03,"US-03: As an admin, I want to assign roles to staff.","**Epic:** E1 · **Points:** 2 · **Priority:** Should · **Dependencies:** US-02
+
+**User story**
+As an admin, I want to assign roles to staff.
+
+**Acceptance criteria**
+ADMIN only; undefined role → 400; every change is written to the audit log.
+
+**Owner:** Mehmet
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M1-identity,should,epic-E1,sp-2",Mehmet
+US-04,"US-04: As a user, I want to receive an in-app notification when the status of my booking changes.","**Epic:** E2 · **Points:** 3 · **Priority:** Must · **Dependencies:** US-02
+
+**User story**
+As a user, I want to receive an in-app notification when the status of my booking changes.
+
+**Acceptance criteria**
+A notification is created for the affected user on approval, rejection, cancellation, redirection and training authorization; GET /notifications returns only the caller's own notifications, newest first; a failure to create a notification is logged and does not roll back the operation.
+
+**Owner:** Mehmet
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M1-identity,must,epic-E2,sp-3",Mehmet
+US-05,"US-05: As a department secretary, I want to see the device and office-hour usage report.","**Epic:** E2 · **Points:** 3 · **Priority:** Should · **Dependencies:** US-06, US-18
+
+**User story**
+As a department secretary, I want to see the device and office-hour usage report.
+
+**Acceptance criteria**
+Date-range filter; occupancy rate and number of cancellations; SECRETARY/ADMIN only.
+
+**Owner:** Sıla
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M1-identity,should,epic-E2,sp-3",Sıla
+US-06,"US-06: As a student, I want to reserve a time slot for a lab device.","**Epic:** E3 · **Points:** 8 · **Priority:** Must · **Dependencies:** US-02, US-11
+
+**User story**
+As a student, I want to reserve a time slot for a lab device.
+
+**Acceptance criteria**
+End before start → 400; overlaps a pending/approved booking → 409; no valid lab approval → 403 LAB_APPROVAL_REQUIRED; no training authorization → 403 TRAINING_REQUIRED; on success 201 + PENDING.
+
+**Owner:** Mürsel
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M2-core,must,epic-E3,sp-8",Mürsel
+US-07,"US-07: As a QA engineer, I want to verify the conflict engine and access rules with unit tests.","**Epic:** E3 · **Points:** 5 · **Priority:** Must · **Dependencies:** US-06
+
+**User story**
+As a QA engineer, I want to verify the conflict engine and access rules with unit tests.
+
+**Acceptance criteria**
+Overlapping, nested and back-to-back ranges (10:00–11:00 and 11:00–12:00 do not conflict); all combinations of approval/authorization present or missing; M2 coverage at least 50%.
+
+**Owner:** Mirac
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M2-core,must,epic-E3,sp-5",Mirac
+US-08,"US-08: As a research assistant, I want to approve or reject pending lab requests.","**Epic:** E4 · **Points:** 5 · **Priority:** Must · **Dependencies:** US-06
+
+**User story**
+As a research assistant, I want to approve or reject pending lab requests.
+
+**Acceptance criteria**
+RESEARCH_ASSISTANT/ADMIN only; rejection reason required; only PENDING requests can be changed, otherwise 409; every transition is written to the status history.
+
+**Owner:** Mürsel
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M2-core,must,epic-E4,sp-5",Mürsel
+US-09,"US-09: As a student, I want to cancel my reservation or appointment.","**Epic:** E3 · **Points:** 2 · **Priority:** Must · **Dependencies:** US-06
+
+**User story**
+As a student, I want to cancel my reservation or appointment.
+
+**Acceptance criteria**
+Can be cancelled before the start time, otherwise 409; another user's booking → 403; the status becomes CANCELLED and the slot is freed immediately.
+
+**Owner:** Sıla
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M2-core,must,epic-E3,sp-2",Sıla
+US-10,"US-10: As a student, I want to see this week's appointments, trainings and reservations in a single calendar.","**Epic:** E3 · **Points:** 3 · **Priority:** Should · **Dependencies:** US-06, US-18
+
+**User story**
+As a student, I want to see this week's appointments, trainings and reservations in a single calendar.
+
+**Acceptance criteria**
+Chronological list with a type label; only the user's own bookings.
+
+**Owner:** Emir
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M2-core,should,epic-E3,sp-3",Emir
+US-11,"US-11: As a research assistant, I want to add and edit devices and rooms.","**Epic:** E5 · **Points:** 3 · **Priority:** Must · **Dependencies:** US-02
+
+**User story**
+As a research assistant, I want to add and edit devices and rooms.
+
+**Acceptance criteria**
+Name, type, category and location required; serial number unique, duplicate → 409; RESEARCH_ASSISTANT/ADMIN only.
+
+**Owner:** Melih
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M3-lab,must,epic-E5,sp-3",Melih
+US-12,"US-12: As a student, I want to filter the catalog by type, category and availability.","**Epic:** E5 · **Points:** 3 · **Priority:** Must · **Dependencies:** US-11
+
+**User story**
+As a student, I want to filter the catalog by type, category and availability.
+
+**Acceptance criteria**
+Filters work together; no results → 200 + empty list; with a 500-record test dataset, p95 response time < 200 ms.
+
+**Owner:** Sıla
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M3-lab,must,epic-E5,sp-3",Sıla
+US-13,"US-13: As an instructor, I want to grant a student lab access approval from an office-hour meeting.","**Epic:** E6 · **Points:** 5 · **Priority:** Must · **Dependencies:** US-18, US-11
+
+**User story**
+As an instructor, I want to grant a student lab access approval from an office-hour meeting.
+
+**Acceptance criteria**
+INSTRUCTOR only; device category and end date required; the approval is linked to the related appointment; the research assistant sees the approval in the lab panel; an expired approval is invalid.
+
+**Owner:** Melih
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M3-lab,must,epic-E6,sp-5",Melih
+US-14,"US-14: As a research assistant, I want to record a completed device training and authorize the student.","**Epic:** E6 · **Points:** 5 · **Priority:** Must · **Dependencies:** US-17, US-18, US-04
+
+**User story**
+As a research assistant, I want to record a completed device training and authorize the student.
+
+**Acceptance criteria**
+Authorization is created only when an appointment of type TRAINING is completed; authorization is per category; a second authorization for the same category → 409; the instructor who granted the approval receives an in-app notification (US-04).
+
+**Owner:** Melih
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M3-lab,must,epic-E6,sp-5",Melih
+US-15,"US-15: As a research assistant, I want to hand over a device with a check-out code and receive its return.","**Epic:** E7 · **Points:** 5 · **Priority:** Should · **Dependencies:** US-08
+
+**User story**
+As a research assistant, I want to hand over a device with a check-out code and receive its return.
+
+**Acceptance criteria**
+A 6-digit single-use code is generated for an approved reservation; when verified → CHECKED_IN; a second use is rejected; on return → COMPLETED.
+
+**Owner:** Mirac
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M3-lab,should,epic-E7,sp-5",Mirac
+US-16,"US-16: As a research assistant, I want to put a device under maintenance.","**Epic:** E7 · **Points:** 3 · **Priority:** Should · **Dependencies:** US-11, US-04
+
+**User story**
+As a research assistant, I want to put a device under maintenance.
+
+**Acceptance criteria**
+A device under maintenance cannot be reserved (409); future reservations are cancelled and their owners are notified (US-04).
+
+**Owner:** Sıla
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M3-lab,should,epic-E7,sp-3",Sıla
+US-17,"US-17: As an instructor or research assistant, I want to define weekly office hours, support hours or training hours.","**Epic:** E8 · **Points:** 5 · **Priority:** Must · **Dependencies:** US-02
+
+**User story**
+As an instructor or research assistant, I want to define weekly office hours, support hours or training hours.
+
+**Acceptance criteria**
+Type (OFFICE_HOUR, SUPPORT, TRAINING), day, time range and slot length are entered; category required for TRAINING; an instructor may define only OFFICE_HOUR, a research assistant only SUPPORT and TRAINING, otherwise 403; the system generates the slots; the same person's hours cannot overlap (409).
+
+**Owner:** Emir
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M4-office-hours,must,epic-E8,sp-5",Emir
+US-18,"US-18: As a student, I want to book an appointment by writing my topic.","**Epic:** E8 · **Points:** 5 · **Priority:** Must · **Dependencies:** US-17, US-06
+
+**User story**
+As a student, I want to book an appointment by writing my topic.
+
+**Acceptance criteria**
+Topic note required (10–500 characters); full slot → 409; at most one appointment per day with the same staff member (instructor or research assistant), otherwise 409; the appointment is stored as a reservation in M2.
+
+**Owner:** Emir
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M4-office-hours,must,epic-E8,sp-5",Emir
+US-19,"US-19: As an instructor, I want to see today's appointments with their topics.","**Epic:** E8 · **Points:** 2 · **Priority:** Must · **Dependencies:** US-18
+
+**User story**
+As an instructor, I want to see today's appointments with their topics.
+
+**Acceptance criteria**
+Listed in time order; cancelled appointments shown separately; only appointments in the instructor's own hours.
+
+**Owner:** Emir
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M4-office-hours,must,epic-E8,sp-2",Emir
+US-20,"US-20: As a department secretary, I want to cancel an office hour for a specific day.","**Epic:** E8 · **Points:** 3 · **Priority:** Must · **Dependencies:** US-18, US-04
+
+**User story**
+As a department secretary, I want to cancel an office hour for a specific day.
+
+**Acceptance criteria**
+SECRETARY/ADMIN or the owner of the hours only; reason required; all appointments of that day become CANCELLED; affected students receive an in-app notification (US-04).
+
+**Owner:** Mirac
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M4-office-hours,must,epic-E8,sp-3",Mirac
+US-21,"US-21: As an instructor, I want to redirect an appointment to a research assistant's support hours.","**Epic:** E9 · **Points:** 3 · **Priority:** Should · **Dependencies:** US-17, US-18, US-04
+
+**User story**
+As an instructor, I want to redirect an appointment to a research assistant's support hours.
+
+**Acceptance criteria**
+No free slot in the target support hours → 409; the old appointment becomes CANCELLED and a new one is created; the student is notified (US-04).
+
+**Owner:** Emir
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M4-office-hours,should,epic-E9,sp-3",Emir
+US-22,"US-22: As a student, I want to open a help appointment in the assistant's support hours from my lab reservation.","**Epic:** E9 · **Points:** 2 · **Priority:** Should · **Dependencies:** US-08, US-18
+
+**User story**
+As a student, I want to open a help appointment in the assistant's support hours from my lab reservation.
+
+**Acceptance criteria**
+Reservation details are attached to the appointment automatically; only for the student's own APPROVED or CHECKED_IN reservation.
+
+**Owner:** Emir
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M4-office-hours,should,epic-E9,sp-2",Emir
+US-23,"US-23: As a user, I want to receive an email when the status of my booking changes.","**Epic:** E2 · **Points:** 3 · **Priority:** Should · **Dependencies:** US-04, EN-03
+
+**User story**
+As a user, I want to receive an email when the status of my booking changes.
+
+**Acceptance criteria**
+Sent for the same events as US-04 through the SMTP service (Mailpit in development); a send failure is logged and does not roll back the operation.
+
+**Owner:** Sıla
+
+**Definition of Done:** PR linked to this Issue (`Closes #...`), at least 1 approval, tests written, consistent with OpenAPI.","M1-identity,should,epic-E2,sp-3",Sıla
+EN-01,"EN-01: GitHub organization, repository, Git-Flow, branch protection, templates","**Epic:** E10 (enabler) · **Points:** 2 · **Sprint:** 1
+
+**Task**
+GitHub organization, repository, Git-Flow, branch protection, templates
+
+**Acceptance criterion**
+main and develop protected; first PR merged after review
+
+**Owner:** Mehmet","devops,must,epic-E10,sp-2,enabler",Mehmet
+EN-02,EN-02: OpenAPI contract v0.2,"**Epic:** E10 (enabler) · **Points:** 3 · **Sprint:** 1
+
+**Task**
+OpenAPI contract v0.2
+
+**Acceptance criterion**
+Opens without errors in Swagger Editor; every operation is linked to a story via `x-story` (Section 8)
+
+**Owner:** Mürsel","must,epic-E10,sp-3,enabler",Mürsel
+EN-03,EN-03: docker-compose skeleton (db + api + web + mailpit),"**Epic:** E10 (enabler) · **Points:** 3 · **Sprint:** 1–2
+
+**Task**
+docker-compose skeleton (db + api + web + mailpit)
+
+**Acceptance criterion**
+`docker compose up` starts the db, api, web and mailpit services (10.0 images, as in ADR-0001)
+
+**Owner:** Mehmet","devops,must,epic-E10,sp-3,enabler",Mehmet
+EN-04,EN-04: GitHub Actions CI (build + test + coverage),"**Epic:** E10 (enabler) · **Points:** 3 · **Sprint:** 3
+
+**Task**
+GitHub Actions CI (build + test + coverage)
+
+**Acceptance criterion**
+Runs on every PR; fails if coverage is below 50%
+
+**Owner:** Mehmet","devops,must,epic-E10,sp-3,enabler",Mehmet
