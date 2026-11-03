@@ -1,0 +1,1550 @@
+openapi: 3.1.0
+info:
+  title: Bookademic API
+  version: 0.2.2
+  summary: Shared booking core for office hours and laboratory resources.
+  description: |
+    API-first contract for Bookademic (SENG 321, Sprint 1).
+
+    **Architecture.** Modular monolith with four modules. M2 (Booking Core) owns the
+    interval conflict check and the reservation state machine. M3 (Lab) and M4
+    (Office Hours) never implement their own conflict logic: every lab reservation
+    and every appointment is an M2 reservation.
+
+    **Conventions.**
+    - Timestamps are ISO 8601 with offset. Seed data uses Europe/Istanbul (+03:00).
+    - Intervals are half-open `[startsAt, endsAt)`: 10:00-11:00 and 11:00-12:00 do not overlap.
+    - Errors use `application/problem+json` (RFC 9457) with a machine-readable `code`.
+    - `x-story` links each operation to the product backlog; `x-priority` mirrors MoSCoW.
+    - An appointment id is the id of its underlying M2 reservation.
+
+    **Reservation states.**
+    `PENDING -> APPROVED | REJECTED | CANCELLED`, `APPROVED -> CHECKED_IN | CANCELLED | COMPLETED`,
+    `CHECKED_IN -> COMPLETED`. Appointments start as `APPROVED` (auto-approved when the slot is free).
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local environment started with docker compose
+security:
+  - bearerAuth: []
+tags:
+  - name: M1 Identity
+    description: Registration, login, roles, notifications and usage reports.
+  - name: M2 Booking Core
+    description: Shared reservation lifecycle, conflict check and status history.
+  - name: M3 Lab
+    description: Resource catalogue, lab access approval, training authorisation, handover and maintenance.
+  - name: M4 Office Hours
+    description: Office, support and training hours; appointments; cancellation and redirection.
+
+paths:
+  # ---------------------------------------------------------------- M1
+  /auth/register:
+    post:
+      tags: [M1 Identity]
+      operationId: registerStudent
+      summary: Register a student with a school e-mail address
+      x-story: [US-01]
+      x-priority: must
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+            example:
+              email: ayse.yilmaz@ogr.example.edu.tr
+              password: CorrectHorse42!
+              fullName: Ayşe Yılmaz
+      responses:
+        '201':
+          description: Student account created with role STUDENT
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400':
+          description: Invalid input or e-mail outside the school domain
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                title: E-mail domain not allowed
+                status: 400
+                code: EMAIL_DOMAIN_NOT_ALLOWED
+                detail: Only school e-mail addresses can register.
+        '409':
+          description: E-mail already registered
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                title: E-mail already registered
+                status: 409
+                code: EMAIL_ALREADY_REGISTERED
+
+  /auth/login:
+    post:
+      tags: [M1 Identity]
+      operationId: login
+      summary: Log in and receive a JWT access token
+      x-story: [US-02]
+      x-priority: must
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /users/me:
+    get:
+      tags: [M1 Identity]
+      operationId: getCurrentUser
+      summary: Get the authenticated user and role
+      description: The frontend uses the role to decide which screens are visible.
+      x-story: [US-02]
+      x-priority: must
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /admin/users/{userId}/role:
+    put:
+      tags: [M1 Identity]
+      operationId: assignUserRole
+      summary: Assign a role to a staff member (ADMIN only)
+      description: Every change is written to the audit log.
+      x-story: [US-03]
+      x-priority: should
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoleUpdate' }
+      responses:
+        '200':
+          description: Role updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /notifications:
+    get:
+      tags: [M1 Identity]
+      operationId: listMyNotifications
+      summary: List in-app notifications for the current user
+      description: |
+        In-app notifications (US-04, Must). Created on approval, rejection,
+        cancellation, redirection and training-authorisation events; this is how
+        "the instructor is notified" (US-14) and "affected students are notified"
+        (US-20) are delivered. E-mail delivery is a separate Should story that
+        reuses the same events; an e-mail failure is logged and does not roll back
+        the business operation.
+      x-story: [US-04]
+      x-priority: must
+      parameters:
+        - in: query
+          name: unreadOnly
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Notifications, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Notification' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reports/usage:
+    get:
+      tags: [M1 Identity]
+      operationId: getUsageReport
+      summary: Resource and office-hour usage report (SECRETARY or ADMIN)
+      x-story: [US-05]
+      x-priority: should
+      parameters:
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+      responses:
+        '200':
+          description: Usage report for the requested date range
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UsageReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------------------------------------------------------- M3 catalogue
+  /resources:
+    get:
+      tags: [M3 Lab]
+      operationId: listResources
+      summary: Search the device and room catalogue
+      description: |
+        Filters combine with AND. When both `availableFrom` and `availableTo` are
+        given, only resources free for the whole interval are returned.
+        No match returns 200 with an empty array. Target: p95 under 200 ms on seed data.
+      x-story: [US-12]
+      x-priority: must
+      parameters:
+        - in: query
+          name: type
+          schema: { $ref: '#/components/schemas/ResourceType' }
+        - in: query
+          name: category
+          schema: { type: string, example: Oscilloscope }
+        - in: query
+          name: availableFrom
+          schema: { type: string, format: date-time }
+        - in: query
+          name: availableTo
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Matching resources (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Resource' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [M3 Lab]
+      operationId: createResource
+      summary: Add a device or room (RESEARCH_ASSISTANT or ADMIN)
+      x-story: [US-11]
+      x-priority: must
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewResource' }
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Resource' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /resources/{resourceId}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    get:
+      tags: [M3 Lab]
+      operationId: getResource
+      summary: Get one resource
+      x-story: [US-12]
+      x-priority: must
+      responses:
+        '200':
+          description: Resource
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Resource' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [M3 Lab]
+      operationId: updateResource
+      summary: Edit a device or room (RESEARCH_ASSISTANT or ADMIN)
+      x-story: [US-11]
+      x-priority: must
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewResource' }
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Resource' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /resources/{resourceId}/maintenance:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    post:
+      tags: [M3 Lab]
+      operationId: startMaintenance
+      summary: Put a resource into maintenance
+      description: Future active reservations are cancelled and their owners notified.
+      x-story: [US-16]
+      x-priority: should
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MaintenanceRequest' }
+      responses:
+        '200':
+          description: Resource is in maintenance
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MaintenanceResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Resource is already in maintenance
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                title: Resource in maintenance
+                status: 409
+                code: RESOURCE_IN_MAINTENANCE
+    delete:
+      tags: [M3 Lab]
+      operationId: endMaintenance
+      summary: Return a resource from maintenance to service
+      x-story: [US-16]
+      x-priority: should
+      responses:
+        '200':
+          description: Resource available again
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Resource' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------------------------------------------------------- M2 core
+  /reservations:
+    get:
+      tags: [M2 Booking Core]
+      operationId: listReservations
+      summary: List reservations visible to the caller
+      description: |
+        Students see only their own reservations. RESEARCH_ASSISTANT and ADMIN see
+        all LAB reservations, e.g. `?kind=LAB&status=PENDING` for the approval queue.
+      x-story: [US-08, US-09]
+      x-priority: must
+      parameters:
+        - in: query
+          name: kind
+          schema: { $ref: '#/components/schemas/ReservationKind' }
+        - in: query
+          name: status
+          schema: { $ref: '#/components/schemas/ReservationStatus' }
+        - $ref: '#/components/parameters/FromDateTimeOptional'
+        - $ref: '#/components/parameters/ToDateTimeOptional'
+      responses:
+        '200':
+          description: Reservations ordered by start time
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Reservation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [M2 Booking Core]
+      operationId: createReservation
+      summary: Reserve a lab device or room for an interval
+      description: |
+        Checks, in order: interval validity (400), resource exists (404),
+        resource not in maintenance (409), eligibility policy of the resource type
+        – active lab approval and training authorisation for the category (403),
+        and interval conflict with PENDING, APPROVED or CHECKED_IN reservations (409).
+        A database exclusion constraint guarantees no overlap under concurrent requests.
+      x-story: [US-06]
+      x-priority: must
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewReservation' }
+            example:
+              resourceId: RES-0007
+              startsAt: '2026-11-16T10:00:00+03:00'
+              endsAt: '2026-11-16T12:00:00+03:00'
+              purpose: Measure PWM output of the motor driver board
+      responses:
+        '201':
+          description: Reservation created and waiting for research assistant approval
+          headers:
+            Location:
+              schema: { type: string }
+              description: URL of the new reservation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reservation' }
+              example:
+                id: RSV-1048
+                kind: LAB
+                resourceId: RES-0007
+                ownerId: USR-0102
+                startsAt: '2026-11-16T10:00:00+03:00'
+                endsAt: '2026-11-16T12:00:00+03:00'
+                purpose: Measure PWM output of the motor driver board
+                status: PENDING
+                createdAt: '2026-11-10T09:12:44+03:00'
+        '400':
+          description: Invalid input or interval
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                title: Invalid interval
+                status: 400
+                code: INVALID_INTERVAL
+                detail: endsAt must be later than startsAt.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Student is not eligible for this resource category
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              examples:
+                approvalMissing:
+                  summary: No active lab approval from an instructor
+                  value:
+                    title: Lab approval required
+                    status: 403
+                    code: LAB_APPROVAL_REQUIRED
+                    detail: No active approval for category Oscilloscope.
+                trainingMissing:
+                  summary: No training authorisation for the category
+                  value:
+                    title: Training required
+                    status: 403
+                    code: TRAINING_REQUIRED
+                    detail: Complete an Oscilloscope training session first.
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Interval unavailable
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              examples:
+                overlap:
+                  summary: Overlaps an active reservation
+                  value:
+                    title: Slot unavailable
+                    status: 409
+                    code: SLOT_UNAVAILABLE
+                    detail: RES-0007 is already reserved between 11:00 and 12:00.
+                maintenance:
+                  summary: Resource is in maintenance
+                  value:
+                    title: Resource in maintenance
+                    status: 409
+                    code: RESOURCE_IN_MAINTENANCE
+
+  /reservations/{reservationId}:
+    parameters:
+      - $ref: '#/components/parameters/ReservationId'
+    get:
+      tags: [M2 Booking Core]
+      operationId: getReservation
+      summary: Get one reservation (owner, RESEARCH_ASSISTANT or ADMIN)
+      x-story: [US-06]
+      x-priority: must
+      responses:
+        '200':
+          description: Reservation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reservation' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /reservations/{reservationId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/ReservationId'
+    post:
+      tags: [M2 Booking Core]
+      operationId: approveReservation
+      summary: Approve a PENDING lab reservation (RESEARCH_ASSISTANT or ADMIN)
+      x-story: [US-08]
+      x-priority: must
+      responses:
+        '200':
+          description: Reservation is APPROVED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reservation' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+
+  /reservations/{reservationId}/reject:
+    parameters:
+      - $ref: '#/components/parameters/ReservationId'
+    post:
+      tags: [M2 Booking Core]
+      operationId: rejectReservation
+      summary: Reject a PENDING lab reservation with a reason
+      x-story: [US-08]
+      x-priority: must
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '200':
+          description: Reservation is REJECTED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reservation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+
+  /reservations/{reservationId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/ReservationId'
+    post:
+      tags: [M2 Booking Core]
+      operationId: cancelReservation
+      summary: Cancel own reservation or appointment before it starts
+      description: The interval becomes free immediately. Works for LAB reservations and appointments.
+      x-story: [US-09]
+      x-priority: must
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OptionalReasonRequest' }
+      responses:
+        '200':
+          description: Reservation is CANCELLED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reservation' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Already started or not in a cancellable state
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                title: Cancellation window passed
+                status: 409
+                code: CANCELLATION_WINDOW_PASSED
+
+  /reservations/{reservationId}/history:
+    parameters:
+      - $ref: '#/components/parameters/ReservationId'
+    get:
+      tags: [M2 Booking Core]
+      operationId: getReservationHistory
+      summary: Status history of a reservation (audit trail)
+      x-story: [US-08]
+      x-priority: must
+      responses:
+        '200':
+          description: Status changes, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/StatusChange' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /me/calendar:
+    get:
+      tags: [M2 Booking Core]
+      operationId: getMyCalendar
+      summary: Unified calendar of own appointments, trainings and lab reservations
+      x-story: [US-10]
+      x-priority: should
+      parameters:
+        - $ref: '#/components/parameters/FromDateTime'
+        - $ref: '#/components/parameters/ToDateTime'
+      responses:
+        '200':
+          description: Entries in chronological order
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CalendarEntry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ---------------------------------------------------------------- M3 handover
+  /reservations/{reservationId}/handover-code:
+    parameters:
+      - $ref: '#/components/parameters/ReservationId'
+    post:
+      tags: [M3 Lab]
+      operationId: issueHandoverCode
+      summary: Issue a one-time 6-digit handover code for an APPROVED reservation
+      x-story: [US-15]
+      x-priority: should
+      responses:
+        '201':
+          description: Code issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HandoverCode' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+
+  /reservations/{reservationId}/check-in:
+    parameters:
+      - $ref: '#/components/parameters/ReservationId'
+    post:
+      tags: [M3 Lab]
+      operationId: checkInReservation
+      summary: Verify the handover code and hand the device over (RESEARCH_ASSISTANT)
+      x-story: [US-15]
+      x-priority: should
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckInRequest' }
+      responses:
+        '200':
+          description: Reservation is CHECKED_IN
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reservation' }
+        '400':
+          description: Wrong or expired code
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                title: Invalid handover code
+                status: 400
+                code: INVALID_HANDOVER_CODE
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+
+  /reservations/{reservationId}/return:
+    parameters:
+      - $ref: '#/components/parameters/ReservationId'
+    post:
+      tags: [M3 Lab]
+      operationId: returnReservation
+      summary: Record the device return (RESEARCH_ASSISTANT)
+      x-story: [US-15]
+      x-priority: should
+      responses:
+        '200':
+          description: Reservation is COMPLETED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reservation' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/InvalidTransition' }
+
+  # ---------------------------------------------------------------- M3 access rules
+  /lab-approvals:
+    post:
+      tags: [M3 Lab]
+      operationId: grantLabApproval
+      summary: Grant lab access for a device category from an office-hour appointment (INSTRUCTOR)
+      description: |
+        The appointment must be an OFFICE_HOUR appointment hosted by the caller.
+        The student is taken from the appointment. Expired approvals are not valid.
+      x-story: [US-13]
+      x-priority: must
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewLabApproval' }
+            example:
+              appointmentId: RSV-0991
+              deviceCategory: Oscilloscope
+              expiresOn: '2027-01-15'
+      responses:
+        '201':
+          description: Approval granted; visible on the research assistant lab panel
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LabApproval' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    get:
+      tags: [M3 Lab]
+      operationId: listLabApprovals
+      summary: List lab approvals (lab panel for RESEARCH_ASSISTANT; own for others)
+      x-story: [US-13]
+      x-priority: must
+      parameters:
+        - $ref: '#/components/parameters/StudentIdQuery'
+        - $ref: '#/components/parameters/DeviceCategoryQuery'
+        - in: query
+          name: activeOnly
+          schema: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Lab approvals
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/LabApproval' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /training-authorizations:
+    post:
+      tags: [M3 Lab]
+      operationId: grantTrainingAuthorization
+      summary: Complete a training appointment and authorise the student (RESEARCH_ASSISTANT)
+      description: |
+        Only a TRAINING appointment can produce an authorisation. The appointment
+        becomes COMPLETED, the authorisation covers the training's device category
+        for the current semester, and the approving instructor is notified.
+      x-story: [US-14]
+      x-priority: must
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewTrainingAuthorization' }
+      responses:
+        '201':
+          description: Student authorised for the category
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrainingAuthorization' }
+        '400':
+          description: Appointment is not a training appointment
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                title: Not a training appointment
+                status: 400
+                code: NOT_A_TRAINING_APPOINTMENT
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Student already authorised for this category
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                title: Training already granted
+                status: 409
+                code: TRAINING_ALREADY_GRANTED
+    get:
+      tags: [M3 Lab]
+      operationId: listTrainingAuthorizations
+      summary: List training authorisations
+      x-story: [US-14]
+      x-priority: must
+      parameters:
+        - $ref: '#/components/parameters/StudentIdQuery'
+        - $ref: '#/components/parameters/DeviceCategoryQuery'
+      responses:
+        '200':
+          description: Training authorisations
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TrainingAuthorization' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------------------------------------------------------- M4
+  /office-hours:
+    post:
+      tags: [M4 Office Hours]
+      operationId: createOfficeHourSchedule
+      summary: Define a weekly office, support or training hour (INSTRUCTOR or RESEARCH_ASSISTANT)
+      description: |
+        The system generates bookable slots. The host's own schedules cannot overlap.
+
+        Role rule: an INSTRUCTOR may define only OFFICE_HOUR schedules; a
+        RESEARCH_ASSISTANT may define only SUPPORT and TRAINING schedules.
+        Any other combination returns 403.
+      x-story: [US-17]
+      x-priority: must
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewOfficeHourSchedule' }
+            example:
+              type: TRAINING
+              dayOfWeek: WEDNESDAY
+              startTime: '14:00'
+              endTime: '16:00'
+              slotMinutes: 30
+              location: B-204 Electronics Lab
+              deviceCategory: Oscilloscope
+      responses:
+        '201':
+          description: Schedule created and slots generated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OfficeHourSchedule' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: Overlaps another schedule of the same host
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                title: Schedule overlap
+                status: 409
+                code: SCHEDULE_OVERLAP
+    get:
+      tags: [M4 Office Hours]
+      operationId: listOfficeHourSchedules
+      summary: List office, support and training hours
+      x-story: [US-17, US-18]
+      x-priority: must
+      parameters:
+        - in: query
+          name: hostId
+          schema: { type: string }
+        - in: query
+          name: type
+          schema: { $ref: '#/components/schemas/ScheduleType' }
+        - $ref: '#/components/parameters/DeviceCategoryQuery'
+      responses:
+        '200':
+          description: Schedules
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/OfficeHourSchedule' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /office-hours/{scheduleId}/slots:
+    parameters:
+      - $ref: '#/components/parameters/ScheduleId'
+    get:
+      tags: [M4 Office Hours]
+      operationId: listSlots
+      summary: List generated slots of a schedule in a time range
+      x-story: [US-18]
+      x-priority: must
+      parameters:
+        - $ref: '#/components/parameters/FromDateTime'
+        - $ref: '#/components/parameters/ToDateTime'
+        - in: query
+          name: onlyAvailable
+          schema: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Slots ordered by start time
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Slot' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /office-hours/{scheduleId}/cancellations:
+    parameters:
+      - $ref: '#/components/parameters/ScheduleId'
+    post:
+      tags: [M4 Office Hours]
+      operationId: cancelOfficeHourDay
+      summary: Cancel a schedule for one day (SECRETARY, ADMIN or the host)
+      description: All appointments of that day become CANCELLED and affected students are notified.
+      x-story: [US-20]
+      x-priority: must
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DayCancellationRequest' }
+            example:
+              date: '2026-11-18'
+              reason: Instructor attending a conference
+      responses:
+        '200':
+          description: Day cancelled
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DayCancellationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /appointments:
+    post:
+      tags: [M4 Office Hours]
+      operationId: bookAppointment
+      summary: Book a slot with a topic note (STUDENT)
+      description: |
+        Auto-approved when the slot is free; stored as an M2 reservation of kind APPOINTMENT.
+        A student can hold one appointment per host per day.
+        `relatedReservationId` opens a help appointment from an own APPROVED or
+        CHECKED_IN lab reservation (US-22); its details are attached automatically.
+      x-story: [US-18, US-22]
+      x-priority: must
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewAppointment' }
+            example:
+              slotId: SLT-2026-11-17-1030-USR-0007
+              topic: I need an oscilloscope for my project and would like to discuss the measurement setup.
+      responses:
+        '201':
+          description: Appointment booked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Appointment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Slot taken or daily limit reached
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              examples:
+                slotTaken:
+                  value:
+                    title: Slot unavailable
+                    status: 409
+                    code: SLOT_UNAVAILABLE
+                dailyLimit:
+                  value:
+                    title: Daily appointment limit reached
+                    status: 409
+                    code: DAILY_APPOINTMENT_LIMIT
+
+  /appointments/incoming:
+    get:
+      tags: [M4 Office Hours]
+      operationId: listIncomingAppointments
+      summary: Appointments on the caller's own schedules for one day (INSTRUCTOR or RESEARCH_ASSISTANT)
+      description: |
+        Returns appointments booked on the caller's office, support or training
+        hours for the given date, ordered by start time and including topics.
+        Cancelled appointments are included and flagged by status.
+        Research assistants use this list to complete training appointments (US-14).
+      x-story: [US-19, US-14]
+      x-priority: must
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema: { type: string, format: date, example: '2026-11-17' }
+      responses:
+        '200':
+          description: Appointments ordered by start time
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Appointment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /appointments/my:
+    get:
+      tags: [M4 Office Hours]
+      operationId: listMyAppointments
+      summary: The caller's own bookings (STUDENT)
+      description: Returns the student's appointments in the optional range, ordered by start time.
+      x-story: [US-18]
+      x-priority: must
+      parameters:
+        - $ref: '#/components/parameters/FromDateTimeOptional'
+        - $ref: '#/components/parameters/ToDateTimeOptional'
+        - in: query
+          name: status
+          schema: { $ref: '#/components/schemas/ReservationStatus' }
+      responses:
+        '200':
+          description: Appointments ordered by start time
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Appointment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /appointments/{appointmentId}/redirect:
+    parameters:
+      - $ref: '#/components/parameters/AppointmentId'
+    post:
+      tags: [M4 Office Hours]
+      operationId: redirectAppointment
+      summary: Redirect an appointment to a research assistant's support slot (INSTRUCTOR)
+      description: The old appointment becomes CANCELLED, a new one is created, the student is notified.
+      x-story: [US-21]
+      x-priority: should
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RedirectRequest' }
+      responses:
+        '201':
+          description: New appointment created in the support slot
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Appointment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Target support slot is not free
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                title: No available slot
+                status: 409
+                code: NO_AVAILABLE_SLOT
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    UserId:
+      in: path
+      name: userId
+      required: true
+      schema: { type: string, example: USR-0102 }
+    ResourceId:
+      in: path
+      name: resourceId
+      required: true
+      schema: { type: string, example: RES-0007 }
+    ReservationId:
+      in: path
+      name: reservationId
+      required: true
+      schema: { type: string, example: RSV-1048 }
+    AppointmentId:
+      in: path
+      name: appointmentId
+      required: true
+      description: Id of the underlying M2 reservation.
+      schema: { type: string, example: RSV-0991 }
+    ScheduleId:
+      in: path
+      name: scheduleId
+      required: true
+      schema: { type: string, example: OHS-0012 }
+    StudentIdQuery:
+      in: query
+      name: studentId
+      description: Ignored for STUDENT callers, who always see their own records.
+      schema: { type: string }
+    DeviceCategoryQuery:
+      in: query
+      name: deviceCategory
+      schema: { type: string, example: Oscilloscope }
+    FromDate:
+      in: query
+      name: from
+      required: true
+      schema: { type: string, format: date }
+    ToDate:
+      in: query
+      name: to
+      required: true
+      schema: { type: string, format: date }
+    FromDateTime:
+      in: query
+      name: from
+      required: true
+      schema: { type: string, format: date-time }
+    ToDateTime:
+      in: query
+      name: to
+      required: true
+      schema: { type: string, format: date-time }
+    FromDateTimeOptional:
+      in: query
+      name: from
+      schema: { type: string, format: date-time }
+    ToDateTimeOptional:
+      in: query
+      name: to
+      schema: { type: string, format: date-time }
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            title: Validation failed
+            status: 400
+            code: VALIDATION_ERROR
+            errors:
+              - field: topic
+                message: Must be between 10 and 500 characters.
+    Unauthorized:
+      description: Missing, invalid or expired token, or wrong credentials
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            title: Unauthorized
+            status: 401
+            code: UNAUTHORIZED
+    Forbidden:
+      description: Authenticated but the role or ownership does not allow the action
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            title: Forbidden
+            status: 403
+            code: FORBIDDEN
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            title: Not found
+            status: 404
+            code: NOT_FOUND
+    Conflict:
+      description: Duplicate value (e.g. serial number already registered)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            title: Duplicate serial number
+            status: 409
+            code: DUPLICATE_SERIAL_NUMBER
+    InvalidTransition:
+      description: The reservation's current status does not allow this transition
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          example:
+            title: Invalid state transition
+            status: 409
+            code: INVALID_STATE_TRANSITION
+            detail: Only PENDING reservations can be approved.
+
+  schemas:
+    # ---------- errors
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - INVALID_INTERVAL
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - NOT_FOUND
+        - EMAIL_DOMAIN_NOT_ALLOWED
+        - EMAIL_ALREADY_REGISTERED
+        - SLOT_UNAVAILABLE
+        - LAB_APPROVAL_REQUIRED
+        - TRAINING_REQUIRED
+        - RESOURCE_IN_MAINTENANCE
+        - INVALID_STATE_TRANSITION
+        - CANCELLATION_WINDOW_PASSED
+        - DUPLICATE_SERIAL_NUMBER
+        - SCHEDULE_OVERLAP
+        - DAILY_APPOINTMENT_LIMIT
+        - NOT_A_TRAINING_APPOINTMENT
+        - TRAINING_ALREADY_GRANTED
+        - INVALID_HANDOVER_CODE
+        - NO_AVAILABLE_SLOT
+    Problem:
+      type: object
+      description: RFC 9457 problem details with a Bookademic error code.
+      required: [title, status, code]
+      properties:
+        type: { type: string, format: uri-reference, default: about:blank }
+        title: { type: string }
+        status: { type: integer, minimum: 400, maximum: 599 }
+        code: { $ref: '#/components/schemas/ErrorCode' }
+        detail: { type: string }
+        instance: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+
+    # ---------- M1
+    Role:
+      type: string
+      enum: [STUDENT, INSTRUCTOR, RESEARCH_ASSISTANT, SECRETARY, ADMIN]
+    User:
+      type: object
+      required: [id, email, fullName, role]
+      properties:
+        id: { type: string, example: USR-0102 }
+        email: { type: string, format: email }
+        fullName: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+    RegisterRequest:
+      type: object
+      required: [email, password, fullName]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8, maxLength: 128, writeOnly: true }
+        fullName: { type: string, minLength: 2, maxLength: 100 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, writeOnly: true }
+    TokenResponse:
+      type: object
+      required: [accessToken, tokenType, expiresIn, user]
+      properties:
+        accessToken: { type: string }
+        tokenType: { type: string, const: Bearer }
+        expiresIn: { type: integer, description: Seconds until expiry, example: 3600 }
+        user: { $ref: '#/components/schemas/User' }
+    RoleUpdate:
+      type: object
+      required: [role]
+      properties:
+        role: { $ref: '#/components/schemas/Role' }
+    Notification:
+      type: object
+      required: [id, type, message, createdAt, read]
+      properties:
+        id: { type: string }
+        type:
+          type: string
+          enum: [RESERVATION_APPROVED, RESERVATION_REJECTED, RESERVATION_CANCELLED, OFFICE_HOUR_CANCELLED, APPOINTMENT_REDIRECTED, TRAINING_GRANTED]
+        message: { type: string }
+        reservationId: { type: string }
+        createdAt: { type: string, format: date-time }
+        read: { type: boolean }
+    UsageReport:
+      type: object
+      required: [from, to, resources, officeHours]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        resources:
+          type: array
+          items:
+            type: object
+            required: [resourceId, name, utilisationRate, reservationCount, cancellationCount]
+            properties:
+              resourceId: { type: string }
+              name: { type: string }
+              utilisationRate: { type: number, minimum: 0, maximum: 1 }
+              reservationCount: { type: integer, minimum: 0 }
+              cancellationCount: { type: integer, minimum: 0 }
+        officeHours:
+          type: array
+          items:
+            type: object
+            required: [scheduleId, hostName, type, slotCount, bookedCount, cancelledCount]
+            properties:
+              scheduleId: { type: string }
+              hostName: { type: string }
+              type: { $ref: '#/components/schemas/ScheduleType' }
+              slotCount: { type: integer, minimum: 0 }
+              bookedCount: { type: integer, minimum: 0 }
+              cancelledCount: { type: integer, minimum: 0 }
+
+    # ---------- M2
+    ReservationKind:
+      type: string
+      enum: [LAB, APPOINTMENT]
+    ReservationStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED, CANCELLED, CHECKED_IN, COMPLETED]
+    NewReservation:
+      type: object
+      required: [resourceId, startsAt, endsAt]
+      properties:
+        resourceId: { type: string, example: RES-0007 }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time, description: Must be later than startsAt }
+        purpose: { type: string, maxLength: 500 }
+    Reservation:
+      type: object
+      required: [id, kind, resourceId, ownerId, startsAt, endsAt, status, createdAt]
+      properties:
+        id: { type: string, example: RSV-1048 }
+        kind: { $ref: '#/components/schemas/ReservationKind' }
+        resourceId: { type: string, description: 'Device/room id, or host-time resource for appointments' }
+        ownerId: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        purpose: { type: string }
+        status: { $ref: '#/components/schemas/ReservationStatus' }
+        createdAt: { type: string, format: date-time }
+    ReasonRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 5, maxLength: 500 }
+    OptionalReasonRequest:
+      type: object
+      properties:
+        reason: { type: string, maxLength: 500 }
+    StatusChange:
+      type: object
+      required: [to, changedBy, changedAt]
+      properties:
+        from:
+          oneOf:
+            - $ref: '#/components/schemas/ReservationStatus'
+            - type: 'null'
+          description: null for the creation event
+        to: { $ref: '#/components/schemas/ReservationStatus' }
+        changedBy: { type: string, description: User id }
+        changedAt: { type: string, format: date-time }
+        reason: { type: string }
+    CalendarEntry:
+      type: object
+      required: [reservationId, kind, title, startsAt, endsAt, status]
+      properties:
+        reservationId: { type: string }
+        kind: { $ref: '#/components/schemas/ReservationKind' }
+        scheduleType: { $ref: '#/components/schemas/ScheduleType' }
+        title: { type: string, example: Oscilloscope training – B-204 }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        status: { $ref: '#/components/schemas/ReservationStatus' }
+
+    # ---------- M3
+    ResourceType:
+      type: string
+      enum: [DEVICE, ROOM]
+    NewResource:
+      type: object
+      required: [name, type, category, location]
+      properties:
+        name: { type: string, maxLength: 120, example: Rigol DS1054Z }
+        type: { $ref: '#/components/schemas/ResourceType' }
+        category: { type: string, example: Oscilloscope }
+        location: { type: string, example: B-204 Electronics Lab }
+        serialNumber: { type: string, description: Unique when present, example: DS1ZA2219 }
+    Resource:
+      allOf:
+        - $ref: '#/components/schemas/NewResource'
+        - type: object
+          required: [id, status]
+          properties:
+            id: { type: string, example: RES-0007 }
+            status:
+              type: string
+              enum: [AVAILABLE, MAINTENANCE]
+    MaintenanceRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 5, maxLength: 500 }
+    MaintenanceResult:
+      type: object
+      required: [resource, cancelledReservations]
+      properties:
+        resource: { $ref: '#/components/schemas/Resource' }
+        cancelledReservations: { type: integer, minimum: 0 }
+    HandoverCode:
+      type: object
+      required: [code, expiresAt]
+      properties:
+        code: { type: string, pattern: '^[0-9]{6}$', example: '482913' }
+        expiresAt: { type: string, format: date-time }
+    CheckInRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, pattern: '^[0-9]{6}$' }
+    NewLabApproval:
+      type: object
+      required: [appointmentId, deviceCategory, expiresOn]
+      properties:
+        appointmentId: { type: string, description: OFFICE_HOUR appointment hosted by the caller }
+        deviceCategory: { type: string, example: Oscilloscope }
+        expiresOn: { type: string, format: date }
+    LabApproval:
+      type: object
+      required: [id, studentId, instructorId, appointmentId, deviceCategory, expiresOn, active, createdAt]
+      properties:
+        id: { type: string, example: LAP-0031 }
+        studentId: { type: string }
+        instructorId: { type: string }
+        appointmentId: { type: string }
+        deviceCategory: { type: string }
+        expiresOn: { type: string, format: date }
+        active: { type: boolean, description: false after expiresOn }
+        createdAt: { type: string, format: date-time }
+    NewTrainingAuthorization:
+      type: object
+      required: [appointmentId]
+      properties:
+        appointmentId: { type: string, description: TRAINING appointment hosted by the caller }
+    TrainingAuthorization:
+      type: object
+      required: [id, studentId, deviceCategory, grantedBy, appointmentId, validUntil]
+      properties:
+        id: { type: string, example: TRA-0017 }
+        studentId: { type: string }
+        deviceCategory: { type: string }
+        grantedBy: { type: string }
+        appointmentId: { type: string }
+        validUntil: { type: string, format: date, description: End of the current semester }
+
+    # ---------- M4
+    ScheduleType:
+      type: string
+      enum: [OFFICE_HOUR, SUPPORT, TRAINING]
+    DayOfWeek:
+      type: string
+      enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+    NewOfficeHourSchedule:
+      type: object
+      required: [type, dayOfWeek, startTime, endTime, slotMinutes, location]
+      properties:
+        type: { $ref: '#/components/schemas/ScheduleType' }
+        dayOfWeek: { $ref: '#/components/schemas/DayOfWeek' }
+        startTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', example: '14:00' }
+        endTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', example: '16:00' }
+        slotMinutes: { type: integer, minimum: 10, maximum: 120, example: 20 }
+        location: { type: string }
+        deviceCategory: { type: string, description: Required when type is TRAINING }
+      if:
+        properties:
+          type: { const: TRAINING }
+      then:
+        required: [deviceCategory]
+    OfficeHourSchedule:
+      allOf:
+        - $ref: '#/components/schemas/NewOfficeHourSchedule'
+        - type: object
+          required: [id, hostId, active]
+          properties:
+            id: { type: string, example: OHS-0012 }
+            hostId: { type: string }
+            hostName: { type: string }
+            active: { type: boolean }
+    Slot:
+      type: object
+      required: [id, scheduleId, hostId, type, startsAt, endsAt, available]
+      properties:
+        id: { type: string, example: SLT-2026-11-17-1030-USR-0007 }
+        scheduleId: { type: string }
+        hostId: { type: string }
+        type: { $ref: '#/components/schemas/ScheduleType' }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        available: { type: boolean }
+    NewAppointment:
+      type: object
+      required: [slotId, topic]
+      properties:
+        slotId: { type: string }
+        topic: { type: string, minLength: 10, maxLength: 500 }
+        relatedReservationId: { type: string, description: Own APPROVED or CHECKED_IN lab reservation (US-22) }
+    Appointment:
+      type: object
+      required: [id, slotId, scheduleType, hostId, studentId, topic, startsAt, endsAt, status]
+      properties:
+        id: { type: string, description: Same as the underlying M2 reservation id, example: RSV-0991 }
+        slotId: { type: string }
+        scheduleType: { $ref: '#/components/schemas/ScheduleType' }
+        hostId: { type: string }
+        hostName: { type: string }
+        studentId: { type: string }
+        studentName: { type: string }
+        topic: { type: string }
+        location: { type: string }
+        relatedReservationId: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        status: { $ref: '#/components/schemas/ReservationStatus' }
+    DayCancellationRequest:
+      type: object
+      required: [date, reason]
+      properties:
+        date: { type: string, format: date }
+        reason: { type: string, minLength: 5, maxLength: 500 }
+    DayCancellationResult:
+      type: object
+      required: [scheduleId, date, cancelledAppointments, notifiedStudents]
+      properties:
+        scheduleId: { type: string }
+        date: { type: string, format: date }
+        cancelledAppointments: { type: integer, minimum: 0 }
+        notifiedStudents: { type: integer, minimum: 0 }
+    RedirectRequest:
+      type: object
+      required: [targetSlotId]
+      properties:
+        targetSlotId: { type: string, description: Free slot of a SUPPORT schedule }
+        note: { type: string, maxLength: 500, description: Optional note for the research assistant and the student }
