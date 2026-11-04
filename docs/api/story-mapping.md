@@ -1,4 +1,4 @@
-<img width="1089" height="781" alt="image" src="https://github.com/user-attachments/assets/8f9c83d2-a65f-4d7d-993a-5f0e38a95cb9" />
+
 # 8. OpenAPI – backlog traceability
 
 This table is generated from the `x-story` fields in `docs/api/openapi.yaml`. When the contract changes, the table is regenerated; it is not edited by hand.
