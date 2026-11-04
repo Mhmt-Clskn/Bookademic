@@ -1,4 +1,3 @@
-
 # 8. OpenAPI – backlog traceability
 
 This table is generated from the `x-story` fields in `docs/api/openapi.yaml`. When the contract changes, the table is regenerated; it is not edited by hand.
