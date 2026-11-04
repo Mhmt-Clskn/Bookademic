@@ -5,8 +5,8 @@
 | File | `docs/ui-screens.md` |
 | Sprint | 1 (Sprint 2 preparation) |
 | Author | Emir (M4 – Office Hours & Support) |
-| Related modules | M1 (Identity), M2 (Reservation & Calendar), M3 (Laboratory), M4 (Office Hours & Support) |
-| Sources | Sprint 1 document §1.4, §3.5, §7 (backlog), `docs/api/openapi.yaml` (v0.2.2) |
+| Related modules | M1 (Identity & Notifications), M2 (Booking Core), M3 (Lab), M4 (Office Hours) |
+| Sources | `docs/sprint1/proposal.md` (§1.4), `docs/sprint1/vision.md` (§3.5), `docs/sprint1/backlog.md`, `docs/api/openapi.yaml` (v0.2.2) |
 | Language rule | All UI text and documentation are in English, as are screen codes, API paths, field names and enum values. |
 | Single source of truth | API paths and field names in this document follow `openapi.yaml`. If the contract changes, this document is updated to match. |
 
@@ -14,11 +14,11 @@
 
 This document defines which screens exist, which story each one serves, which API each one calls, and how the main project journey flows across screens for Bookademic's 5 actors. In Sprint 2, frontend work follows this document and the OpenAPI contract, and can proceed with mock data (Prism mock server) until M2/M3 are ready.
 
-**Out of scope:** pixel-level visual design, mobile app, live queue, messaging (see Sprint 1 document §3.2).
+**Out of scope:** pixel-level visual design, mobile app, live queue, messaging (see `docs/sprint1/vision.md` §3.2).
 
 ## 2. Design principles
 
-1. **Server rules are authoritative.** Lab approval, training authorization and conflict checks are enforced on the server (§3.4). The UI does not rely on hiding buttons; it turns server errors into clear English messages, chosen by the `code` field of the error response (see §8).
+1. **Server rules are authoritative.** Lab approval, training authorization and conflict checks are enforced on the server (`docs/sprint1/vision.md` §3.4). The UI does not rely on hiding buttons; it turns server errors into clear English messages, chosen by the `code` field of the error response (see §8).
 2. **Role-based menu.** Users only see screens their role can access; an unauthorized URL shows a 403 page, a missing token redirects to SCR-01.
 3. **Every list screen defines 4 states:** loading, empty, error, populated.
 4. **Topic note is mandatory** (10–500 characters, with live counter); letting the instructor prepare for the meeting is a core goal of the project.
@@ -78,8 +78,8 @@ Alternative flows: SCR-09 ⇢ SCR-02 (secretary cancellation) · SCR-07 / SCR-02
 
 | Step | Screen | Actor | Action | Success result | Error cases (`code`) |
 |---|---|---|---|---|---|
-| 0 | SCR-01 | Student | Registers/signs in with school e-mail | 200 + JWT, role-appropriate home page | `EMAIL_DOMAIN_NOT_ALLOWED` (400) · `EMAIL_ALREADY_REGISTERED` (409) · `UNAUTHORIZED` (401) |
-| 1 | SCR-04 | Student | Picks an instructor and a free slot, writes the topic note (e.g. "I need an oscilloscope for my project") | 201, appointment created as `APPROVED` (auto-approved when the slot is free) | `VALIDATION_ERROR` (400, topic note outside 10–500 characters) · `SLOT_UNAVAILABLE` (409) · `DAILY_APPOINTMENT_LIMIT` (409, second appointment with the same instructor on the same day) |
+| 0 | SCR-01 | Student | Registers/signs in with school e-mail | 200 + JWT, role-appropriate home page | Register: `EMAIL_DOMAIN_NOT_ALLOWED` (400) · `EMAIL_ALREADY_REGISTERED` (409). Sign in: `UNAUTHORIZED` (401) |
+| 1 | SCR-04 | Student | Picks an instructor and a free slot, writes the topic note (e.g. "I need an oscilloscope for my project") | 201, appointment created as `APPROVED` (auto-approved when the slot is free) | `VALIDATION_ERROR` (400, topic note outside 10–500 characters) · `SLOT_UNAVAILABLE` (409) · `DAILY_APPOINTMENT_LIMIT` (409, second appointment with the same staff member (instructor or research assistant) on the same day) |
 | 2 | SCR-05 | Instructor | Sees the day's appointments with their topics; after the meeting grants a lab access approval with device category + end date | Approval is linked to the appointment; the research assistant sees it in the lab panel | `VALIDATION_ERROR` (400, missing category/date) · `FORBIDDEN` (403) |
 | 3 | SCR-06 | Student → Research Assistant | Student books a TRAINING slot; after the session the research assistant clicks "Complete training" | Appointment becomes `COMPLETED`, category-based device authorization is created; the approving instructor is notified | `TRAINING_ALREADY_GRANTED` (409) · `NOT_A_TRAINING_APPOINTMENT` (400) · `SLOT_UNAVAILABLE` (409) |
 | 4 | SCR-07 | Student | Filters the catalog, selects a device and time range, submits a request | 201 + `PENDING` | `INVALID_INTERVAL` (400) · `LAB_APPROVAL_REQUIRED` (403) · `TRAINING_REQUIRED` (403) · `RESOURCE_IN_MAINTENANCE` (409) · `SLOT_UNAVAILABLE` (409) |
@@ -105,7 +105,7 @@ Alternative flows: SCR-09 ⇢ SCR-02 (secretary cancellation) · SCR-07 / SCR-02
 - **Fields:** school e-mail, password, (register) full name.
 - **Validation:** school e-mail domain check; `EMAIL_DOMAIN_NOT_ALLOWED` → "Only school e-mail addresses are accepted."
 - **Behavior:** after sign-in the JWT is stored, the role is read with `GET /users/me`, and the user is routed to the home page for their role.
-- **States:** loading (button disabled) · 401 · 409.
+- **States:** loading (button disabled) · register: 400, 409 · sign in: 401.
 
 ### SCR-02 — Calendar & My Appointments (Student)
 
@@ -125,7 +125,7 @@ Alternative flows: SCR-09 ⇢ SCR-02 (secretary cancellation) · SCR-07 / SCR-02
 
 - **Flow:** choose instructor (`GET /office-hours?type=OFFICE_HOUR`) → choose date → free slots (`GET /office-hours/{scheduleId}/slots`) → topic note → "Book appointment" (`POST /appointments` with `slotId` and `topic`).
 - **Topic note:** mandatory, 10–500 characters, live character counter, placeholder example.
-- **Slots:** taken slots are disabled and labeled "Taken"; a second appointment with the same instructor on the same day returns `DAILY_APPOINTMENT_LIMIT`.
+- **Slots:** taken slots are disabled and labeled "Taken"; a second appointment with the same staff member (instructor or research assistant) on the same day returns `DAILY_APPOINTMENT_LIMIT`.
 - **Success:** confirmation summary + link to SCR-02.
 
 ### SCR-05 — Daily Appointments & Lab Approval (Instructor)
@@ -213,7 +213,7 @@ The message is chosen by the `code` field of the `Problem` response, not by the 
 | 403 | `FORBIDDEN` | "You do not have permission to access this page." |
 | 404 | `NOT_FOUND` | "The record you are looking for was not found." |
 | 409 | `SLOT_UNAVAILABLE` | "The selected time is already taken. Please choose another time." |
-| 409 | `DAILY_APPOINTMENT_LIMIT` | "You can book only one appointment per day with the same instructor." |
+| 409 | `DAILY_APPOINTMENT_LIMIT` | "You can book only one appointment per day with the same staff member (instructor or research assistant)." |
 | 409 | `CANCELLATION_WINDOW_PASSED` | "A record that has already started cannot be cancelled." |
 | 409 | `INVALID_STATE_TRANSITION` | "This record's status does not allow this action. Please refresh the page." |
 | 409 | `SCHEDULE_OVERLAP` | "This time range overlaps with one of your existing office hours." |
@@ -254,9 +254,9 @@ US-07 (unit tests) needs no screen. US-23 (e-mail notification) has no screen of
 
 ## 10. Pre-submission checklist
 
-- [ ] Paths, field names and role names match `openapi.yaml` v0.2.2 (confirm with Mürsel)
-- [ ] The project name is written "Bookademic" everywhere in this file
-- [ ] All screen texts and error messages are in English
+- [x] Paths, field names and role names match `openapi.yaml` v0.2.2 (confirm with Mürsel)
+- [x] The project name is written "Bookademic" everywhere in this file
+- [x] All screen texts and error messages are in English
 - [ ] Issue + feature branch + PR opened for this file (`Closes #<no>`), reviewed per the review plan
 - [ ] PR merged with "Create a merge commit" (no squash, branch not deleted)
 - [ ] Every story is linked to at least one screen (§9)
