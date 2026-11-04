@@ -1,15 +1,15 @@
 # Bookademic – Team Roles and RACI Matrix
 
-**Owner:** Sıla (Scrum Master) · **Last updated:** November 3, 2026
+**Owner:** Sıla (Scrum Master) · **Last updated:** November 4, 2026
 
 ## 1. Team roles
 
 | Member | Role | Area of responsibility | Sprint 1 deliverables | Code ownership (Sprint 3+) |
 | --- | --- | --- | --- | --- |
 | Melih | Product Owner & Requirements Engineer | Product | Project proposal, system vision and boundary, user survey, product backlog | M3: US-11, US-13, US-14 |
-| Sıla | Scrum Master & Agile Process Coach | Process | Roles and RACI, GitHub Projects board, meeting records, submission coordination | M1: US-05 · M2: US-09 · M3: US-12, US-16 |
+| Sıla | Scrum Master & Agile Process Coach | Process | Roles and RACI, GitHub Projects board, meeting records, submission coordination | M1: US-05, US-23 · M2: US-09 · M3: US-12, US-16 |
 | Mürsel | Lead Software Architect & Technical Lead | Architecture | OpenAPI YAML contract, technology stack decision (ADR) | M2: US-06, US-08 (core engine and module template) |
-| Mirac | Quality Assurance & Test Automation Engineer | Quality | Testability review of acceptance criteria, draft test plan | M2 conflict-engine and access-rule tests · M3: US-15 · M4: US-20 |
+| Mirac | Quality Assurance & Test Automation Engineer | Quality | Testability review of acceptance criteria, draft test plan | M2: US-07 (conflict-engine and access-rule tests) · M3: US-15 · M4: US-20 |
 | Mehmet | DevOps & CI/CD Infrastructure Engineer | DevOps | GitHub organization, repository, branch protection, docker-compose skeleton, release tag | M1: US-01–US-04 · EN-01, EN-03, EN-04 |
 | Emir | Implementation & Integration Engineer | Implementation and integration | OpenAPI M4 contribution, screen list and main user-journey screen flow | M4: US-10, US-17–US-19, US-21, US-22 · frontend skeleton |
 
@@ -23,7 +23,7 @@
 | User survey and primary evidence | A/R | C | I | C | I | I |
 | System vision and boundary | A/R | I | C | I | I | C |
 | OpenAPI YAML contract | C | I | A/R | C | I | R |
-| Technology stack decision (ADR) | C | C | A/R | C | C | C |
+| Technology stack decision (ADR) | I | I | A/R | C | C | I |
 | Team roles and RACI matrix | C | A/R | C | C | C | C |
 | GitHub organization and repository structure | I | C | C | I | A/R | I |
 | Git-Flow and branch protection rules | I | A | C | C | R | I |
