@@ -5,7 +5,7 @@
 | File | `docs/ui-screens.md` |
 | Sprint | 1 (Sprint 2 preparation) |
 | Author | Emir (M4 – Office Hours & Support) |
-| Related modules | M1 (Identity), M2 (Reservation Core), M3 (Laboratory) |
+| Related modules | M1 (Identity), M2 (Reservation & Calendar), M3 (Laboratory), M4 (Office Hours & Support) |
 | Sources | Sprint 1 document §1.4, §3.5, §7 (backlog), `docs/api/openapi.yaml` (v0.2.2) |
 | Language rule | All UI text and documentation are in English, as are screen codes, API paths, field names and enum values. |
 | Single source of truth | API paths and field names in this document follow `openapi.yaml`. If the contract changes, this document is updated to match. |
@@ -175,7 +175,7 @@ Alternative flows: SCR-09 ⇢ SCR-02 (secretary cancellation) · SCR-07 / SCR-02
 ### CMP-01 — Notification Center (header component)
 
 - **Content:** in-app notifications (`GET /notifications`) for appointment/reservation cancellation, approval/rejection, redirection and authorization granted; unread badge on the bell icon.
-- **Status:** US-04 is an in-app notification story (Must). E-mail notifications are a separate Should story that reuses the same events and adds no screen.
+- **Status:** US-04 is an in-app notification story (Must). E-mail notifications are a separate Should story (US-23) that reuses the same events and adds no screen.
 
 ## 7. M4 endpoints in OpenAPI v0.2.2
 
@@ -248,8 +248,9 @@ The message is chosen by the `code` field of the `Problem` response, not by the 
 | US-20 | SCR-09 | `POST /office-hours/{scheduleId}/cancellations` (M4) |
 | US-21 | SCR-10 | `POST /appointments/{appointmentId}/redirect` (M4) |
 | US-22 | SCR-10 | `POST /appointments` (`relatedReservationId`) (M4) |
+| US-23 | CMP-01 (no screen of its own) | none; e-mails are sent by the server from the same events that feed `GET /notifications` (M1) |
 
-US-07 (unit tests) and the e-mail notification story need no screen.
+US-07 (unit tests) needs no screen. US-23 (e-mail notification) has no screen of its own; it reuses the events shown in CMP-01.
 
 ## 10. Pre-submission checklist
 
