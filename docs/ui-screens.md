@@ -6,7 +6,7 @@
 | Sprint | 1 (Sprint 2 preparation) |
 | Author | Emir (M4 – Office Hours & Support) |
 | Related modules | M1 (Identity & Notifications), M2 (Booking Core), M3 (Lab), M4 (Office Hours) |
-| Sources | `docs/sprint1/vision.md` (§1.4, §3.5), `docs/sprint1/backlog.md`, `docs/api/openapi.yaml` (v0.2.2) |
+| Sources | `docs/sprint1/proposal.md` (§1.4), `docs/sprint1/vision.md` (§3.5), `docs/sprint1/backlog.md`, `docs/api/openapi.yaml` (v0.2.2) |
 | Language rule | All UI text and documentation are in English, as are screen codes, API paths, field names and enum values. |
 | Single source of truth | API paths and field names in this document follow `openapi.yaml`. If the contract changes, this document is updated to match. |
 
@@ -254,9 +254,9 @@ US-07 (unit tests) needs no screen. US-23 (e-mail notification) has no screen of
 
 ## 10. Pre-submission checklist
 
-- [ ] Paths, field names and role names match `openapi.yaml` v0.2.2 (confirm with Mürsel)
-- [ ] The project name is written "Bookademic" everywhere in this file
-- [ ] All screen texts and error messages are in English
+- [x] Paths, field names and role names match `openapi.yaml` v0.2.2 (confirm with Mürsel)
+- [x] The project name is written "Bookademic" everywhere in this file
+- [x] All screen texts and error messages are in English
 - [ ] Issue + feature branch + PR opened for this file (`Closes #<no>`), reviewed per the review plan
 - [ ] PR merged with "Create a merge commit" (no squash, branch not deleted)
 - [ ] Every story is linked to at least one screen (§9)
