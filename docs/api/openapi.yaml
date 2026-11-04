@@ -205,7 +205,7 @@ paths:
       description: |
         Filters combine with AND. When both `availableFrom` and `availableTo` are
         given, only resources free for the whole interval are returned.
-        No match returns 200 with an empty array. Target: p95 under 200 ms on seed data.
+        No match returns 200 with an empty array. Target: p95 under 200 ms with a 500-record test dataset.
       x-story: [US-12]
       x-priority: must
       parameters:
