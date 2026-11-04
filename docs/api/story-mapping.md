@@ -31,8 +31,8 @@ Contract version: 0.2.2 · 35 operations · 21 stories mapped to endpoints.
 
 **Work items without an endpoint:**
 
-- **US-07** is a test story and has no API of its own; it is verified by unit tests behind `createReservation` and `approveReservation`.
-- **E-mail notifications** (new Should story; ID assigned in the backlog by the Product Owner) reuse the same events as US-04 and are delivered through SMTP (Mailpit in development). They add no endpoint.
+- **US-07** is a test story and has no API of its own; it is verified by unit tests and Testcontainers integration tests (see docs/test-plan.md) behind `createReservation` and `approveReservation`.
+- **US-23 – E-mail notifications** (Should, owner Sıla) reuse the same events as US-04 and are delivered through SMTP (Mailpit in development). They add no endpoint.
 - **EN-01, EN-03 and EN-04** are infrastructure work. **EN-02** is this contract itself.
 
 **Reverse check:** every operation in the contract has at least one `x-story` value; there is no endpoint without a story.

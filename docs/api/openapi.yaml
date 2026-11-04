@@ -157,7 +157,7 @@ paths:
         In-app notifications (US-04, Must). Created on approval, rejection,
         cancellation, redirection and training-authorisation events; this is how
         "the instructor is notified" (US-14) and "affected students are notified"
-        (US-20) are delivered. E-mail delivery is a separate Should story that
+        (US-20) are delivered. E-mail delivery is a separate Should story (US-23) that
         reuses the same events; an e-mail failure is logged and does not roll back
         the business operation.
       x-story: [US-04]
@@ -205,7 +205,7 @@ paths:
       description: |
         Filters combine with AND. When both `availableFrom` and `availableTo` are
         given, only resources free for the whole interval are returned.
-        No match returns 200 with an empty array. Target: p95 under 200 ms on seed data.
+        No match returns 200 with an empty array. Target: p95 under 200 ms with a 500-record test dataset.
       x-story: [US-12]
       x-priority: must
       parameters:

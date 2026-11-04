@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Proposed (team approval is given in the review of this ADR's pull request) |
+| Status | Accepted (4 Nov 2026, approved in the pull-request review) |
 | Date | 2026-11-02 (revised 2026-11-03) |
 | Decision owner (A) | Mürsel – Lead Software Architect |
 | Consulted (C) | Mehmet (DevOps), Mirac (QA) |
@@ -149,7 +149,7 @@ Negative and mitigations:
 
 ## Follow-up
 
-- [ ] Pull-request review: reviewer Sıla; Mehmet and Mirac add comments. When approved, status changes from "Proposed" to "Accepted".
+- [x] Pull-request review: reviewer Sıla; Mehmet and Mirac add comments. When approved, status changes from "Proposed" to "Accepted".
 - [ ] Mehmet: build the EN-03 compose skeleton on this stack (`db`, `api`, `web`, `mailpit`; `10.0` images)
 - [ ] Mehmet: enforce the coverage threshold in EN-04 with `coverlet.msbuild` or ReportGenerator
 - [ ] Mirac: use the xUnit, coverlet and Testcontainers decisions in the test plan
