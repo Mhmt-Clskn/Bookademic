@@ -157,7 +157,7 @@ paths:
         In-app notifications (US-04, Must). Created on approval, rejection,
         cancellation, redirection and training-authorisation events; this is how
         "the instructor is notified" (US-14) and "affected students are notified"
-        (US-20) are delivered. E-mail delivery is a separate Should story that
+        (US-20) are delivered. E-mail delivery is a separate Should story (US-23) that
         reuses the same events; an e-mail failure is logged and does not roll back
         the business operation.
       x-story: [US-04]
