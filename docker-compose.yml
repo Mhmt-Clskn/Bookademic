@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bookademic
+    ports:
+      - "5432:5432"
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025" # SMTP portu
+      - "8025:8025" # Web arayüzü portu
+
+  backend:
+    image: alpine
+    command: tail -f /dev/null # Geliştiriciler kodu yazana kadar ayakta tutar
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+      - mailhog
+
+  frontend:
+    image: alpine
+    command: tail -f /dev/null # Geliştiriciler kodu yazana kadar ayakta tutar
+    ports:
+      - "3000:3000"
