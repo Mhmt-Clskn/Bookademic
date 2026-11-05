@@ -1,9 +1,9 @@
 # Bookademic – Student Survey (Sprint 1)
 
-**Target:** 30+ responses · **Distributed:** 3 November 2026 · **Interim results:** 3 November 2026 (proposal.md → 1.2) · **Final results:** 5 November 2026, noon
+**Target:** 30+ responses · **Results:** analysed and reported in the Sprint 2 SRS
 **Owner:** Melih · **Tool:** Google Forms (anonymous, email addresses not collected)
 
-> **Language note:** The project is run in English, so this file is the English reference version of the survey. Because the respondents are students in our department, **the form itself is distributed in Turkish**. The Turkish form contains the same questions and options in the same order.
+> **Language note:** The project is run in English, so this file is the English reference version of the survey. Because the respondents are students in our department, **the form itself will be distributed in Turkish** (Sprint 2). The Turkish form will contain the same questions and options in the same order.
 
 ## Form introduction
 
@@ -40,6 +40,7 @@ Yes, often · Yes, a few times · No, but I needed to · No, I didn't need to
 - We clashed with another team at the same time (double booking)
 - I couldn't find out whether the device was available
 - I found out only afterwards that I needed training to use the device
+- I saw devices being used without training
 - I didn't know whom to ask for device training
 - I had problems checking out / returning the device
 - I had no problems
@@ -54,7 +55,7 @@ Not needed · By email, same day · By email, took several days · By signature 
 
 **Optional, open-ended:** What feature would you most like to see in this application? ____
 
-## Analysis plan (for proposal.md 1.2)
+## Analysis plan (for the Sprint 2 SRS)
 
 | Output | Source question |
 |---|---|
@@ -66,6 +67,6 @@ Not needed · By email, same day · By email, took several days · By signature 
 | Ease of reaching the assistant (mean) | Q9 |
 | Need for the solution (mean, share of 4–5) | Q10 |
 
-**Reporting schedule:** Interim results with the responses received so far are written into proposal.md 1.2 on 3 November 2026 as "interim (n responses)"; final results replace them on 5 November 2026 at noon.
+**Reporting schedule:** Results are analysed with this plan and reported in the Sprint 2 SRS; proposal.md 1.2 will then be updated with the findings.
 
-**Note:** The results come from a small convenience sample and cannot be generalized. In the Sprint 1 report, present them as directional evidence, together with the published studies (UMD, Teaching Professor).
+**Note:** The results come from a small convenience sample and cannot be generalized. In the Sprint 2 SRS, present them as directional evidence, together with the published studies (UMD, Teaching Professor).
