@@ -98,6 +98,8 @@ The contract can also be viewed in [Swagger Editor](https://editor.swagger.io/) 
 | [Test Plan](docs/test-plan.md) | Test strategy, levels, coverage goals, quality gates | Mirac |
 | [Screen List & Flow](docs/ui-screens.md) | Screens per role, main user journey, error messages | Emir |
 | [Team Roles & RACI](docs/sprint1/raci.md) | Responsibilities and RACI matrix | Sıla |
+| [Git-Flow & Repository Workflow](docs/sprint1/git-flow.md) | Branch model, protection, PR and review rules, releases | Sıla |
+| [Individual Contributions](CONTRIBUTIONS.md) | Each member's role, work and GitHub links | Sıla |
 | [Meeting Notes](docs/meetings/) | Team decisions and action items | Sıla |
 
 ## Repository structure
@@ -110,9 +112,11 @@ The contract can also be viewed in [Swagger Editor](https://editor.swagger.io/) 
 │   ├── adr/              # architecture decision records
 │   ├── api/              # openapi.yaml and story mapping
 │   ├── meetings/         # meeting notes
-│   ├── sprint1/          # proposal, vision, backlog, survey, RACI
+│   ├── sprint1/          # proposal, vision, backlog, survey, RACI, Git-Flow
 │   ├── test-plan.md
 │   └── ui-screens.md
+├── .env.example          # default database settings for docker compose
+├── CONTRIBUTIONS.md      # individual contributions with GitHub links
 ├── docker-compose.yml
 ├── LICENSE
 └── README.md
@@ -129,9 +133,11 @@ The contract can also be viewed in [Swagger Editor](https://editor.swagger.io/) 
 | Mehmet | DevOps & CI/CD Infrastructure Engineer |
 | Emir | Implementation & Integration Engineer |
 
-Detailed responsibilities are in the [RACI matrix](docs/sprint1/raci.md).
+Detailed responsibilities are in the [RACI matrix](docs/sprint1/raci.md); each member's Issues, pull requests, reviews and commits are listed in [CONTRIBUTIONS.md](CONTRIBUTIONS.md).
 
 ## How we work
+
+Full rules: [Git-Flow & Repository Workflow](docs/sprint1/git-flow.md).
 
 - **Branches (Git-Flow):** `main` holds released versions only; `develop` is the integration branch; every task gets its own `feature/<issue-no>-<short-name>` branch created from `develop`.
 - **Issues:** every user story, enabler and fix is a GitHub Issue with module, priority and story-point labels, tracked on the GitHub Projects board.
