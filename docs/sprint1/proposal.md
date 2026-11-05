@@ -39,25 +39,9 @@ A student working on a course project or a graduation project depends on two sca
 - In a survey of more than 600 students, 66% had never attended office hours for the relevant course and only 8% attended more than once a month (Teaching Professor). This result comes from a survey published by other researchers.
 - In the University of Maryland's 2024 survey, 21% of students who signed up for office hours said they attended "never or rarely". The same report lists the reasons students miss *any* appointment or event (not specific to office hours): "something else came up" (80%), "forgot" (55%) and "double-booked" (44%) (UMD CAWG report). Reminders and conflict checks target these reasons directly.
 
-**Primary data (Sprint 1):** A 10-question survey of students in our department (target: 30+ responses; questions in `survey.md`), plus short interviews with 2–3 faculty members and one research assistant. The survey was distributed on 3 November 2026 (form in Turkish, see `survey.md`).
+**Primary data:** A 10-question survey of students in our department was prepared in Sprint 1 (target: 30+ responses; questions and analysis plan in `survey.md`; the form will be distributed in Turkish). Short interviews with 2–3 faculty members and one research assistant are planned for Sprint 2.
 
-**Survey results – interim (n = __ responses, as of 3 Nov 2026, __:__)**
-
-> Final results will replace this block on 5 November 2026 at noon.
-
-| Indicator | Source question | Interim value |
-|---|---|---|
-| Responses | – | __ |
-| Students who never attend office hours | Q3 | __% |
-| Most frequent reasons for not attending (ranked) | Q4 | __ |
-| Students who experienced a lab booking conflict or wait | Q7 | __% |
-| Students who witnessed untrained device use / learned about training only afterwards | Q7 | __% |
-| Students who got lab approval by email/signature | Q8 | __% |
-| Usefulness of a single web app (mean, 1–5; share of 4–5) | Q10 | __ / __% |
-
-**Takeaways:** __
-
-*Note: This is a small convenience sample and cannot be generalized; it is presented as directional evidence alongside the published studies above.*
+**Survey results will be analysed in the Sprint 2 SRS.** Until then, the problem statement relies on the published studies above. The indicators to be reported (office-hour attendance, reasons for not attending, lab conflicts, untrained device use, approval process, perceived usefulness) are defined in the analysis plan in `survey.md`.
 
 ### 1.3 Stakeholders
 
@@ -125,7 +109,7 @@ All outcomes are measurable and will be verified by tests or by the Sprint demo.
 | The jury sees the project as "two independent applications" | The flows connecting the two domains (lab approval, device training) are Must; the demo is built on this journey | Melih |
 | The "shared core" claim has no counterpart in the code | M2 is written first; M3 and M4 do not implement their own reservation logic but call M2; checked in PR reviews | Mürsel |
 | Scope creep (5 actors, two domains) | MoSCoW; only Must until the MVP; live queue and mobile app out of scope | Melih |
-| No feedback from real users | Survey in Sprint 1, short interviews in Sprint 2; if not possible, persona assumptions are flagged | Melih |
+| No feedback from real users | Survey prepared in Sprint 1 and run in Sprint 2, together with short interviews; if not possible, persona assumptions are flagged | Melih |
 | Test coverage below 50% | The conflict engine and access rules are written with tests from day one; coverage threshold in CI | Mirac |
 | System does not start with a single command | docker-compose skeleton set up in Sprint 1; demo rehearsal at the end of each sprint | Mehmet |
 | Unbalanced contributions | Every task has an Issue + PR; weekly contribution check | Sıla |
